@@ -1,13 +1,8 @@
 <?php
-
 use Illuminate\Http\Request;
 
-Route::post('/geolocation', function(Request $request) {
-    $ipAddress = $request->input('ip_address');
-    if (!$ipAddress) {
-        return response()->json(['error' => 'Missing required parameter: ip_address'], 400);
-    }
-
+function getGeolocationData($ipAddress)
+{
     $url = "http://ip-api.com/json/$ipAddress";
 
     $ch = curl_init();
@@ -17,26 +12,53 @@ Route::post('/geolocation', function(Request $request) {
 
     if ($response === false) {
         error_log('cURL error: ' . curl_error($ch));
-        return response()->json(['error' => 'An error occurred while fetching the geolocation data.'], 500);
+        return ['error' => 'An error occurred while fetching the geolocation data.'];
     }
 
     $data = json_decode($response, true);
 
-    if (is_array($data) && isset($data['lat']) && isset($data['lon']) && isset($data['city']) && isset($data['country'])) {
-        $city = $data['city'];
-        $region = $data['regionName'];
-        $country = $data['country'];
+    if (is_array($data) && isset($data['lat']) && isset($data['lon']) && isset($data['city']) && isset ($data['regionName']) && isset($data['country'])) {
+       
+        $filtered_data = [
+            'latitude' => $data['lat'],
+            'longitude' => $data['lon'],
+            'city' => $data['city'],
+            'region' => $data['regionName'],
+            'country' => $data['country']
+        ];
+
     } else {
-        return response()->json(['error' => 'Invalid or incomplete geolocation data.'], 400);
+        return ['error' => 'Invalid or incomplete geolocation data.'];
     }
 
     curl_close($ch);
 
-    $filtered_data = [
-        'city' => $city,
-        'region' => $region,
-        'country' => $country
-    ];
+    return $filtered_data;
+}
 
-    return response()->json(['data' => $filtered_data]);
+Route::post('/weather', function (Request $request) {
+    $ipAddress = $request->input('ip_address');
+    if (!$ipAddress) {
+        return response()->json(['error' => 'Missing required parameter: ip_address'], 400);
+    }
+
+    $geolocationData = getGeolocationData($ipAddress);
+
+    $weatherapiKey = getenv('WEATHER_API_KEY');
+
+    $url = "http://api.weatherapi.com/v1/current.json?key=$weatherapiKey&q={$geolocationData['latitude']},{$geolocationData['longitude']}";
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+
+    if ($response === false) {
+        error_log('cURL error: ' . curl_error($ch));
+        return ['error' => 'An error occurred while fetching the weather data.'];
+    }
+
+    $data = json_decode($response, true);
+
+    return response()->json($data);
 });
