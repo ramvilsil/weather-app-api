@@ -37,7 +37,7 @@ function getGeolocationData($ipAddress)
 }
 
 Route::post('/weather', function (Request $request) {
-    $ipAddress = $request->input('ip_address');
+    $ipAddress = $request->input('IpAddress');
     if (!$ipAddress) {
         return response()->json(['error' => 'Missing required parameter: ip_address'], 400);
     }
@@ -60,5 +60,14 @@ Route::post('/weather', function (Request $request) {
 
     $data = json_decode($response, true);
 
-    return response()->json($data);
+    $filtered_data = [
+        'Geolocation' => $geolocationData['city'] . ', ' . $geolocationData['region'] . ', ' . $geolocationData['country'],
+        'TemperatureC' => $data['current']['temp_c'],
+        'TemperatureF' => $data['current']['temp_f'],
+        'Condition' => $data['current']['condition']['text'],
+        'Humidity' => $data['current']['humidity'],
+        'Wind' => $data['current']['wind_kph']
+    ];
+
+    return response()->json($filtered_data);
 });
